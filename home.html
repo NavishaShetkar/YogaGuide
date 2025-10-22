@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="picture/icon2.png">
+    <title>YogaGuide</title>
+    <link rel="stylesheet" href="css/home.css">
+  </head>
+  
+  <body>
+    <header class="navbar">
+      <div class="logo">
+        <img src="picture/icon2.png" alt="YogaGuide Logo"> YogaGuide
+      </div>
+      <nav>
+        <ul>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#about">About</a></li>
+          <li><a class="btn-outline" href="#" onclick="openLogin()">Login</a></li>
+        </ul>
+      </nav>
+    </header>
+    
+    <section class="hero">
+      <div class="hero-text">
+        <a href="signup.html" class="btn">Get Started</a>
+      </div>
+    </section>
+    
+    <section id="features" class="features-section">
+      <div class="features-container">
+        <div class="features-image">
+          <img src="picture/2.jpeg" alt="Yoga Practice" />
+        </div>
+        
+        <div class="features-content">
+          <h2>Why YogaGuide?</h2>
+          <div class="feature-grid">
+            <div class="feature-card">
+              <h3>📷 Real-time Feedback</h3>
+              <p>Real-time feedback during yoga to help you practice safely.</p>
+            </div>
+          
+            <div class="feature-card">
+              <h3>🎯 Accurate Assessment</h3>
+              <p>Accurate assessment of subtle errors in your posture.</p>
+            </div>
+          
+            <div class="feature-card">
+              <h3>🌍 Accessible Anywhere</h3>
+              <p>Accessible anywhere through mobile apps, practice anytime.</p>
+            </div>
+
+            <div class="feature-card">
+              <h3>⏰ 24/7 Availability</h3>
+              <p>Available 24/7 unlike human trainers, no schedule restrictions.</p>
+            </div>
+          
+            <div class="feature-card">
+              <h3>💰 Low-cost</h3>
+              <p>Cost-effective compared to hiring personal instructors.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="about" class="about">
+      <h2>About YogaGuide</h2>
+      <p>
+        YogaGuide is a student-built project powered by AI and Computer Vision.
+        It helps you practice yoga at home safely with personalized guidance.
+      </p>
+    </section>
+
+    <section id="testimonials" class="testimonials">
+      <h2>What Our Users Say</h2>
+      <div class="testimonial-container">
+        <div class="testimonial-card">
+          <p>"YogaGuide has completely transformed my yoga practice! The AI feedback helps me correct my posture instantly."</p>
+          <h3>— Ananya Sharma</h3>
+          <span>Beginner Yogi</span>
+        </div>
+
+        <div class="testimonial-card">
+          <p>"I love how easy it is to follow along with the poses. I can practice anytime, anywhere!"</p>
+          <h3>— Rahul Mehta</h3>
+          <span>Fitness Enthusiast</span>
+        </div>
+
+        <div class="testimonial-card">
+          <p>"The real-time feedback feels like having a personal yoga coach. Highly recommended!"</p>
+          <h3>— Priya Nair</h3>
+          <span>Home Practitioner</span>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <p>© 2025 YogaGuide. Built with ❤️ for wellness.</p>
+    </footer>
+
+    <div id="loginModal" class="modal">
+      <div class="modal-content">
+        <span class="close" onclick="closeLogin()">&times;</span>
+        <iframe src="login.html" title="Login Page"></iframe>
+      </div>
+    </div>
+    
+    <script src="js/common.js"></script>
+  
+  </body>
+</html>
