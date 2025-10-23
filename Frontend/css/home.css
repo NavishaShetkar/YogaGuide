@@ -59,6 +59,10 @@ body {
   color: #fff;
 }
 
+.navbar a:hover {
+  color: #FFD1FF;
+}
+
 /* Text inside hero */
 .hero {
   position: relative;
