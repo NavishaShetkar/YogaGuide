@@ -74,8 +74,8 @@ body {
   display: flex;
   align-items: flex-start;   /* align content to top */
   justify-content: flex-start; /* align to left */
-  padding-left: 80px;       /* space from left */
-  padding-top: 400px; 
+  padding-left: 300px;       /* space from left */
+  padding-top: 300px; 
 }
 
 .hero::before {
@@ -93,7 +93,7 @@ body {
 .hero-text .btn {
   background: #8E44AD;
   color: #fff;
-  padding: 14px 28px;
+  padding: 15px 38px;
   border-radius: 6px;
   text-decoration: none;
   font-size: 18px;
