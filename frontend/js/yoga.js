@@ -4,10 +4,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const stopBtn = document.getElementById("stop-btn");
   const captureBtn = document.getElementById("capture-btn");
   const preview = document.getElementById("webcamPreview");
+  const resultBox = document.getElementById("resultBox");
 
   let stream;
-
-  if (!video || !startBtn || !stopBtn) return;
+  let capturedCanvas = null;
 
   // Start webcam
   startBtn.addEventListener("click", () => {
@@ -31,22 +31,54 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Capture snapshot
-  if (captureBtn) {
-    captureBtn.addEventListener("click", () => {
-      if (!video || !preview) return;
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(video, 0, 0);
-      preview.innerHTML = "";
-      preview.appendChild(canvas);
-    });
-  }
-});
+  captureBtn.addEventListener("click", () => {
+    if (!video) return;
 
-// Detect Pose (future backend integration)
-function detectPose() {
-  alert("Analyzing your live yoga pose...");
-  // TODO: Connect to Flask backend API
-}
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0);
+
+    preview.innerHTML = "";
+    preview.appendChild(canvas);
+
+    capturedCanvas = canvas;  // Save for uploading
+  });
+
+  // Detect pose
+  document.getElementById("detectPoseBtn").addEventListener("click", async () => {
+    if (!capturedCanvas) {
+      alert("Please capture an image first!");
+      return;
+    }
+
+    // Convert canvas → Blob → File
+    capturedCanvas.toBlob(async function (blob) {
+      const file = new File([blob], "capture.jpg", { type: "image/jpeg" });
+
+      let formData = new FormData();
+      formData.append("file", file);  // IMPORTANT — must match backend
+
+      try {
+        const res = await fetch("http://localhost:5000/predict", {
+          method: "POST",
+          body: formData
+        });
+
+        const data = await res.json();
+
+        if (data.error) {
+          alert(data.error);
+        } else {
+          resultBox.innerText = "Pose: " + data.pose;
+        }
+
+      } catch (err) {
+        alert("Server Error! Check backend logs.");
+        console.error(err);
+      }
+    }, "image/jpeg");
+  });
+});
