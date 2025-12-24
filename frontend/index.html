@@ -36,24 +36,30 @@
         <button onclick="showUpload()">Upload Image/Video</button> 
         <button onclick="showWebcam()">Webcam Capture</button> 
     </div> 
-    <!-- Upload Mode --> 
-     <div id="uploadSection" class="upload-section"> 
-        <h3>Upload Image/Video</h3> 
-        <input type="file" id="fileInput" accept="image/*,video/*"> 
-        <br> 
-        <button onclick="detectPose('upload')">Detect Pose</button> 
-        <div id="uploadPreview"></div> 
-    </div> 
 
-    <!-- Webcam Mode --> 
-     <div id="webcamSection" class="webcam-section"> 
-        <h3>Webcam Capture</h3> 
-        <video id="webcam" autoplay></video> 
-        <br> <button onclick="captureImage()">Capture Image</button> 
-        <div id="webcamPreview"></div> 
-        <button onclick="detectPose('webcam')">Detect Pose</button> 
-    </div> 
-  </section>
+    <!-- Upload Section -->
+<div id="uploadSection" class="upload-section">
+    <h3>Upload Image</h3>
+    <input type="file" id="fileInput" accept="image/*">
+    <button id="uploadDetectBtn">Detect Pose</button>
+    <div id="uploadPreview"></div>
+    <div id="resultBox" class="result-box"></div>
+</div>
+
+<!-- Webcam Section -->
+<div id="webcamSection" class="webcam-section" style="display:none;">
+    <h3>Webcam Capture</h3>
+
+    <video id="webcam" autoplay></video>
+
+    <br>
+    <button id="start-btn">Start Webcam</button>
+    <button id="stop-btn">Stop Webcam</button>
+
+    <div id="resultBox" class="result-box"></div>
+</div>
+
+</div>
 
    <!-- Progress Section -->
   <section id="progressSection" class="progress-section">
