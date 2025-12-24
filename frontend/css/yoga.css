@@ -179,12 +179,3 @@ video {
   box-shadow: 0 0 20px rgba(142, 68, 173, 0.3);
 }
 
-/* Unified footer look */
-footer {
-  margin-top: 60px;
-  background: #8E44AD;
-  color: #fff;
-  padding: 20px;
-  border-top-left-radius: 20px;
-  border-top-right-radius: 20px;
-}
