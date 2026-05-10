@@ -1,139 +1,449 @@
-import os
-import cv2
-import numpy as np
-import mediapipe as mp
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, Response
 from flask_cors import CORS
-from models import db, User
-import joblib
 
+import os
+import uuid
+import gc
+
+import mysql.connector
+
+import live_pose
+
+from live_pose import generate_frames
+
+from cnn_model.predict_cnn import predict_image
+
+# --------------------------
+# MYSQL CONNECTION
+# --------------------------
+db = mysql.connector.connect(
+
+    host="localhost",
+
+    user="root",
+
+    password="",
+
+    database="yogaguide_db"
+)
+
+cursor = db.cursor(
+    dictionary=True
+)
+
+# --------------------------
+# FLASK APP
+# --------------------------
 app = Flask(__name__)
+
 CORS(app)
 
 # --------------------------
-# DATABASE CONFIG
+# PATH SETTINGS
 # --------------------------
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))     # backend/
-DB_PATH = os.path.join(BASE_DIR, "instance", "yogaguide.db")
+BASE_DIR = os.path.dirname(
+    os.path.abspath(__file__)
+)
 
-app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{DB_PATH}"
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
-db.init_app(app)
-
-with app.app_context():
-    db.create_all()
-
+FRONTEND_DIR = os.path.join(
+    BASE_DIR,
+    "..",
+    "frontend"
+)
 
 # --------------------------
-# LOAD AI MODEL + SCALER
+# FRONTEND ROUTES
 # --------------------------
-MODEL_PATH = os.path.join(BASE_DIR, "yoga_ai", "models", "svm_pose_model.pkl")
-SCALER_PATH = os.path.join(BASE_DIR, "yoga_ai", "models", "scaler.pkl")
-
-model = joblib.load(MODEL_PATH)
-scaler = joblib.load(SCALER_PATH)
-
-mp_pose = mp.solutions.pose
-
-
-# --------------------------
-# FRONTEND ROUTING
-# --------------------------
-FRONTEND_DIR = os.path.join(BASE_DIR, "..", "frontend")
-
 @app.route("/")
 def home():
-    return send_from_directory(FRONTEND_DIR, "home.html")
+
+    return send_from_directory(
+        FRONTEND_DIR,
+        "index.html"
+    )
 
 @app.route("/<path:path>")
-def serve_static(path):
-    return send_from_directory(FRONTEND_DIR, path)
+def static_files(path):
 
+    return send_from_directory(
+        FRONTEND_DIR,
+        path
+    )
 
 # --------------------------
-# USER AUTH API
+# REGISTER API
 # --------------------------
-
 @app.route("/register", methods=["POST"])
 def register():
+
     data = request.get_json()
 
-    username = data.get("username")
-    email = data.get("email")
-    password = data.get("password")
+    cursor.execute(
 
-    if User.query.filter_by(email=email).first():
-        return jsonify({"error": "Email already exists"}), 400
+        "SELECT * FROM users WHERE email = %s",
 
-    user = User(username=username, email=email)
-    user.set_password(password)
+        (data["email"],)
+    )
 
-    db.session.add(user)
-    db.session.commit()
+    if cursor.fetchone():
 
-    return jsonify({"message": "User registered successfully"}), 201
+        return jsonify({
+            "error": "User already exists"
+        }), 400
 
+    cursor.execute(
 
-@app.route("/login", methods=["POST"])
-def login():
-    data = request.get_json()
+        """
+        INSERT INTO users
+        (username, email, password)
+        VALUES (%s,%s,%s)
+        """,
 
-    email = data.get("email")
-    password = data.get("password")
+        (
+            data["username"],
+            data["email"],
+            data["password"]
+        )
+    )
 
-    user = User.query.filter_by(email=email).first()
-
-    if not user:
-        return jsonify({"error": "You don’t have an account. Please Sign Up!"}), 404
-
-    if not user.check_password(password):
-        return jsonify({"error": "Incorrect password."}), 401
-
-    return jsonify({"message": "Login success"}), 200
-
-
-
-# --------------------------
-# AI POSE PREDICTION API
-# --------------------------
-
-@app.route("/predict", methods=["POST"])
-def predict_pose():
-    if "file" not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
-
-    file = request.files["file"]
-    temp_path = os.path.join(BASE_DIR, "temp_pose.jpg")
-    file.save(temp_path)
-
-    img = cv2.imread(temp_path)
-    if img is None:
-        return jsonify({"error": "Invalid image"}), 400
-
-    # Use MediaPipe to extract landmarks
-    with mp_pose.Pose(static_image_mode=True) as pose:
-        results = pose.process(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-
-        if not results.pose_landmarks:
-            return jsonify({"error": "No pose detected"}), 400
-
-        landmarks = []
-        for lm in results.pose_landmarks.landmark:
-            landmarks.extend([lm.x, lm.y, lm.z])
-
-    # Model prediction
-    X = scaler.transform([landmarks])
-    prediction = model.predict(X)[0]
+    db.commit()
 
     return jsonify({
-        "pose": prediction,
-        "message": "Pose detected successfully"
+        "message": "Registration successful"
     })
 
+# --------------------------
+# LOGIN API
+# --------------------------
+@app.route("/login", methods=["POST"])
+def login():
+
+    data = request.get_json()
+
+    cursor.execute(
+
+        """
+        SELECT * FROM users
+        WHERE email=%s AND password=%s
+        """,
+
+        (
+            data["email"],
+            data["password"]
+        )
+    )
+
+    user = cursor.fetchone()
+
+    if user:
+
+        return jsonify({
+
+            "success": True,
+
+            "user_id": user["id"]
+        })
+
+    return jsonify({
+        "error": "Invalid credentials"
+    }), 401
 
 # --------------------------
-# RUN SERVER
+# GET PROFILE
+# --------------------------
+@app.route("/get_profile/<int:user_id>")
+def get_profile(user_id):
+
+    cursor.execute(
+
+        """
+        SELECT * FROM profiles
+        WHERE user_id=%s
+        """,
+
+        (user_id,)
+    )
+
+    profile = cursor.fetchone()
+
+    if profile:
+
+        return jsonify(profile)
+
+    return jsonify({
+        "error": "Profile not found"
+    }), 404
+
+# --------------------------
+# SAVE PROFILE
+# --------------------------
+@app.route("/save_profile", methods=["POST"])
+def save_profile():
+
+    data = request.get_json()
+
+    cursor.execute(
+
+        """
+        INSERT INTO profiles
+
+        (
+            user_id,
+            full_name,
+            age,
+            gender,
+            experience,
+            goal,
+            height,
+            weight,
+            injury
+        )
+
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        """,
+
+        (
+            data["user_id"],
+            data["full_name"],
+            data["age"],
+            data["gender"],
+            data["experience"],
+            data["goal"],
+            data["height"],
+            data["weight"],
+            data["injury"]
+        )
+    )
+
+    db.commit()
+
+    return jsonify({
+        "message": "Profile saved"
+    })
+
+# --------------------------
+# WEBCAM STREAM
+# --------------------------
+@app.route("/video_feed")
+def video_feed():
+
+    return Response(
+
+        generate_frames(),
+
+        mimetype=(
+            "multipart/x-mixed-replace;"
+            " boundary=frame"
+        )
+    )
+
+# --------------------------
+# GET LIVE POSE
+# --------------------------
+@app.route("/get_pose/<int:user_id>")
+def get_pose(user_id):
+
+    # ---------- LIVE DATA ----------
+    pose = (
+
+        live_pose.latest_pose
+
+        if live_pose.latest_pose
+
+        else "No Pose Detected"
+    )
+
+    confidence = round(
+
+        live_pose.latest_confidence or 0,
+
+        2
+    )
+
+    correction = (
+        live_pose.correction_message
+    )
+
+    # ---------- USER PROFILE ----------
+    cursor.execute(
+
+        """
+        SELECT * FROM profiles
+        WHERE user_id=%s
+        """,
+
+        (user_id,)
+    )
+
+    user = cursor.fetchone()
+
+    recommendation = "✅ Suitable"
+
+    # --------------------------
+    # SAFETY RULES
+    # --------------------------
+    if user:
+
+        age = user["age"]
+
+        experience = user["experience"]
+
+        injury = user["injury"]
+
+        # ---------- KNEE INJURY ----------
+        if (
+            injury
+            and
+            "knee" in str(injury).lower()
+        ):
+
+            if pose in [
+
+                "Veerabhadrasana",
+
+                "UtkataKonasana",
+
+                "ArdhaChandrasana"
+            ]:
+
+                recommendation = (
+                    "❌ Avoid "
+                    "(Knee injury)"
+                )
+
+        # ---------- BACK INJURY ----------
+        elif (
+            injury
+            and
+            "back" in str(injury).lower()
+        ):
+
+            if pose in [
+
+                "Downward_dog",
+
+                "Triangle"
+            ]:
+
+                recommendation = (
+                    "❌ Avoid "
+                    "(Back injury)"
+                )
+
+        # ---------- BEGINNER ----------
+        elif experience == "Beginner":
+
+            if pose in [
+
+                "Natarajasana",
+
+                "ArdhaChandrasana"
+            ]:
+
+                recommendation = (
+                    "⚠️ Advanced pose "
+                    "(Not for beginners)"
+                )
+
+        # ---------- AGE ----------
+        elif age and int(age) > 50:
+
+            if pose in [
+
+                "Natarajasana",
+
+                "ArdhaChandrasana"
+            ]:
+
+                recommendation = (
+                    "⚠️ Do carefully "
+                    "(Balance pose)"
+                )
+
+            else:
+
+                recommendation = (
+                    "✅ Safe but go slow"
+                )
+
+    # ---------- RESPONSE ----------
+    return jsonify({
+
+        "pose": pose,
+
+        "confidence": confidence,
+
+        "recommendation": recommendation,
+
+        "correction": correction
+    })
+
+# --------------------------
+# IMAGE PREDICTION
+# --------------------------
+@app.route("/predict", methods=["POST"])
+def predict():
+
+    # ---------- CHECK FILE ----------
+    if "file" not in request.files:
+
+        return jsonify({
+            "error": "No file uploaded"
+        }), 400
+
+    file = request.files["file"]
+
+    if file.filename == "":
+
+        return jsonify({
+            "error": "Empty file"
+        }), 400
+
+    # ---------- UNIQUE FILE ----------
+    filename = (
+        f"temp_{uuid.uuid4().hex}.jpg"
+    )
+
+    upload_path = os.path.join(
+        BASE_DIR,
+        filename
+    )
+
+    # ---------- SAVE ----------
+    file.save(upload_path)
+
+    # ---------- PREDICT ----------
+    pose, confidence = predict_image(
+        upload_path
+    )
+
+    # ---------- DELETE TEMP ----------
+    try:
+
+        os.remove(upload_path)
+
+        gc.collect()
+
+    except:
+
+        pass
+
+    # ---------- RESPONSE ----------
+    return jsonify({
+
+        "pose": pose,
+
+        "confidence": confidence
+    })
+
+# --------------------------
+# RUN APP
 # --------------------------
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+
+    app.run(
+
+        debug=False,
+
+        threaded=True
+    )
