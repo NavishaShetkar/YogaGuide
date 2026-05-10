@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0">
+
+  <link rel="icon"
+        type="image/png"
+        href="picture/icon2.png">
+
+  <title>YogaGuide Dashboard</title>
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/yoga.css">
+  <link rel="stylesheet" href="css/progress.css">
+
+  <!-- Google Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+
+<body>
+
+<!-- ====================================== -->
+<!-- NAVBAR -->
+<!-- ====================================== -->
+<header class="navbar">
+
+  <div class="logo">
+
+    <img src="picture/icon2.png">
+
+    YogaGuide
+
+  </div>
+
+  <nav>
+
+    <ul>
+
+      <li>
+        <a href="home.html" class="logout">
+          Logout
+        </a>
+      </li>
+
+    </ul>
+
+  </nav>
+
+</header>
+
+<!-- ====================================== -->
+<!-- DASHBOARD -->
+<!-- ====================================== -->
+<section class="dashboard">
+
+  <div class="dashboard-container">
+
+    <!-- ====================================== -->
+    <!-- LEFT SIDE : PROFILE -->
+    <!-- ====================================== -->
+    <div class="user-info" id="userInfo">
+
+      <h2>👤 Your Profile</h2>
+
+      <p>
+        <strong>Name:</strong>
+        <span id="name"></span>
+      </p>
+
+      <p>
+        <strong>Age:</strong>
+        <span id="age"></span>
+      </p>
+
+      <p>
+        <strong>Gender:</strong>
+        <span id="gender"></span>
+      </p>
+
+      <p>
+        <strong>Goal:</strong>
+        <span id="goal"></span>
+      </p>
+
+      <p>
+        <strong>Experience:</strong>
+        <span id="experience"></span>
+      </p>
+
+    </div>
+
+    <!-- ====================================== -->
+    <!-- RIGHT SIDE -->
+    <!-- ====================================== -->
+    <div class="dashboard-main">
+
+      <!-- Welcome -->
+      <div class="welcome-text">
+
+        <h1>Welcome to YogaGuide!</h1>
+
+        <p>
+          Track your posture and improve daily 🧘
+        </p>
+
+      </div>
+
+      <!-- ====================================== -->
+      <!-- MODE BUTTONS -->
+      <!-- ====================================== -->
+      <div class="mode-buttons">
+
+        <button onclick="showUpload()">
+          Upload
+        </button>
+
+        <button onclick="showWebcam()">
+          Webcam
+        </button>
+
+      </div>
+
+      <!-- ====================================== -->
+      <!-- UPLOAD SECTION -->
+      <!-- ====================================== -->
+      <div id="uploadSection"
+           class="upload-section">
+
+        <h3>Upload Image</h3>
+
+        <input type="file"
+               id="fileInput">
+
+        <button id="uploadDetectBtn">
+          Detect Pose
+        </button>
+
+        <!-- IMAGE PREVIEW -->
+        <div id="uploadPreview"></div>
+
+        <!-- RESULT BOX -->
+        <div id="uploadResult"
+             class="result-box"
+             style="display:none;">
+
+          <h3>Upload Result</h3>
+
+          <p>
+            <strong>Pose:</strong>
+            <span id="uploadPoseText">
+              Waiting...
+            </span>
+          </p>
+
+          <p>
+            <strong>Confidence:</strong>
+            <span id="uploadConfidenceText">
+              0%
+            </span>
+          </p>
+
+        </div>
+
+      </div>
+
+      <!-- ====================================== -->
+      <!-- WEBCAM SECTION -->
+      <!-- ====================================== -->
+      <div id="webcamSection"
+           style="display:none;">
+
+        <div class="webcam-layout">
+
+          <!-- ====================================== -->
+          <!-- LEFT : WEBCAM -->
+          <!-- ====================================== -->
+          <div class="webcam-box">
+
+            <h3>Live Detection</h3>
+
+            <!-- LIVE CAMERA -->
+            <img id="webcamStream">
+
+            <br><br>
+
+            <!-- BUTTONS -->
+            <button id="start-btn">
+              Start
+            </button>
+
+            <button id="stop-btn">
+              Stop
+            </button>
+
+          </div>
+
+          <!-- ====================================== -->
+          <!-- RIGHT : RESULT BOX -->
+          <!-- ====================================== -->
+          <div id="resultBox"
+               class="result-box">
+
+            <h3>Live Result</h3>
+
+            <p>
+              <strong>Pose:</strong>
+              <span id="poseText">
+                Waiting...
+              </span>
+            </p>
+
+            <p>
+              <strong>Confidence:</strong>
+              <span id="confidenceText">
+                0%
+              </span>
+            </p>
+
+            <p>
+              <strong>Recommendation:</strong>
+              <span id="recommendationText">
+                ---
+              </span>
+            </p>
+
+            <p>
+              <strong>Correction:</strong>
+              <span id="correctionText">
+                ---
+              </span>
+            </p>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</section>
+
+<!-- ====================================== -->
+<!-- FOOTER -->
+<!-- ====================================== -->
+<footer>
+
+  <p>
+    © 2025 YogaGuide
+  </p>
+
+</footer>
+
+<!-- ====================================== -->
+<!-- JAVASCRIPT -->
+<!-- ====================================== -->
+<script src="js/index.js"></script>
+
+<script src="js/progress.js"></script>
+
+</body>
+
+</html>
