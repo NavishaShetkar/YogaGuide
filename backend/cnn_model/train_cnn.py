@@ -5,6 +5,8 @@ import os
 import json
 import joblib
 
+from collections import Counter
+
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import StandardScaler
@@ -12,8 +14,31 @@ from sklearn.preprocessing import StandardScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.optimizers import Adam
 
-# ---------- PATH SETUP ----------
+# ==========================================
+# GPU MEMORY FIX
+# ==========================================
+gpus = tf.config.experimental.list_physical_devices('GPU')
+
+if gpus:
+
+    try:
+
+        for gpu in gpus:
+
+            tf.config.experimental.set_memory_growth(
+                gpu,
+                True
+            )
+
+    except RuntimeError as e:
+
+        print(f"GPU Error: {e}")
+
+# ==========================================
+# PATH SETUP
+# ==========================================
 BASE_DIR = os.path.dirname(
     os.path.abspath(__file__)
 )
@@ -39,43 +64,72 @@ SCALER_PATH = os.path.join(
     "scaler.pkl"
 )
 
-# ---------- LOAD DATASET ----------
+# ==========================================
+# LOAD DATASET
+# ==========================================
+print("\nLoading dataset...")
+
 data = pd.read_csv(DATA_PATH)
 
-# Features
+print(f"Dataset Shape: {data.shape}")
+
+# ==========================================
+# FEATURES & LABELS
+# ==========================================
 X = data.iloc[:, :-1].values
 
-# Labels
 y = data.iloc[:, -1].values
 
-# ---------- ENCODE LABELS ----------
+print(f"Feature Shape: {X.shape}")
+
+# ==========================================
+# LABEL ENCODING
+# ==========================================
 encoder = LabelEncoder()
 
 y = encoder.fit_transform(y)
 
-class_names = list(encoder.classes_)
+class_names = list(
+    encoder.classes_
+)
 
-# Save class names
+# ==========================================
+# SHOW CLASS DISTRIBUTION
+# ==========================================
+print("\nClass Distribution:")
+
+print(Counter(y))
+
+# ==========================================
+# SAVE CLASS NAMES
+# ==========================================
 with open(CLASS_PATH, "w") as f:
 
-    json.dump(class_names, f)
+    json.dump(
+        class_names,
+        f
+    )
 
-# ---------- FEATURE SCALING ----------
-# Important because:
-# coordinates ≈ -1 to 1
-# angles ≈ 0 to 180
+# ==========================================
+# FEATURE SCALING
+# ==========================================
+print("\nScaling features...")
 
 scaler = StandardScaler()
 
 X = scaler.fit_transform(X)
 
-# Save scaler
+# SAVE SCALER
 joblib.dump(
     scaler,
     SCALER_PATH
 )
 
-# ---------- TRAIN / TEST SPLIT ----------
+print("Scaler saved successfully")
+
+# ==========================================
+# TRAIN TEST SPLIT
+# ==========================================
 X_train, X_test, y_train, y_test = train_test_split(
 
     X,
@@ -88,11 +142,20 @@ X_train, X_test, y_train, y_test = train_test_split(
     stratify=y
 )
 
-# ---------- MODEL ----------
-# Current features:
-# 12 landmarks × 3 coords = 36
-# 8 angles
-# Total = 44
+print(f"\nTraining Samples: {len(X_train)}")
+
+print(f"Testing Samples: {len(X_test)}")
+
+# ==========================================
+# MODEL
+# ==========================================
+# Current Features:
+#
+# 14 landmarks × 3 coords = 42
+#
+# 14 angles
+#
+# Total = 56 Features
 
 model = Sequential([
 
@@ -127,17 +190,29 @@ model = Sequential([
     )
 ])
 
-# ---------- COMPILE ----------
+# ==========================================
+# OPTIMIZER
+# ==========================================
+optimizer = Adam(
+
+    learning_rate=0.0005
+)
+
+# ==========================================
+# COMPILE
+# ==========================================
 model.compile(
 
-    optimizer='adam',
+    optimizer=optimizer,
 
     loss='sparse_categorical_crossentropy',
 
     metrics=['accuracy']
 )
 
-# ---------- EARLY STOPPING ----------
+# ==========================================
+# EARLY STOPPING
+# ==========================================
 early_stop = EarlyStopping(
 
     monitor='val_loss',
@@ -147,7 +222,9 @@ early_stop = EarlyStopping(
     restore_best_weights=True
 )
 
-# ---------- TRAIN ----------
+# ==========================================
+# TRAIN
+# ==========================================
 print(
     f"\nTraining on {X.shape[1]} features..."
 )
@@ -171,7 +248,11 @@ history = model.fit(
     verbose=1
 )
 
-# ---------- EVALUATE ----------
+# ==========================================
+# EVALUATE
+# ==========================================
+print("\nEvaluating model...")
+
 loss, accuracy = model.evaluate(
 
     X_test,
@@ -185,7 +266,9 @@ print(
     f"{round(accuracy * 100, 2)}%"
 )
 
-# ---------- SAVE MODEL ----------
+# ==========================================
+# SAVE MODEL
+# ==========================================
 model.save(MODEL_PATH)
 
 print(
@@ -199,3 +282,24 @@ print(
 print(
     f"\nClass names saved at:\n{CLASS_PATH}"
 )
+
+# ==========================================
+# FINAL INFO
+# ==========================================
+print("\n===================================")
+
+print("TRAINING COMPLETED SUCCESSFULLY")
+
+print("===================================")
+
+print("\nFeature Summary:")
+
+print("42 landmark coordinates")
+
+print("14 body angles")
+
+print("56 total features")
+
+print("\nYou can now run:")
+
+print("\npython app.py")
