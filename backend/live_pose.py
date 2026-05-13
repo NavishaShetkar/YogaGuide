@@ -6,6 +6,8 @@ import os
 import joblib
 import time
 import gc
+import pyttsx3
+import threading
 
 # ==========================================
 # GPU MEMORY FIX
@@ -41,6 +43,30 @@ last_pose = ""
 pose_counter = 0
 
 missing_frames = 0
+
+# ==========================================
+# VOICE FEEDBACK
+# ==========================================
+engine = pyttsx3.init()
+
+engine.setProperty('rate', 145)
+
+engine.setProperty('volume', 1.0)
+
+voices = engine.getProperty('voices')
+
+if len(voices) > 1:
+
+    engine.setProperty(
+        'voice',
+        voices[1].id
+    )
+
+last_speak_time = 0
+
+VOICE_COOLDOWN = 4
+
+is_speaking = False
 
 # ==========================================
 # LOAD MODEL
@@ -118,15 +144,15 @@ pose_detector = mp_pose.Pose(
 
     static_image_mode=False,
 
-    model_complexity=0,
+    model_complexity=1,
 
     smooth_landmarks=True,
 
     enable_segmentation=False,
 
-    min_detection_confidence=0.6,
+    min_detection_confidence=0.5,
 
-    min_tracking_confidence=0.6
+    min_tracking_confidence=0.5
 )
 
 # ==========================================
@@ -134,24 +160,43 @@ pose_detector = mp_pose.Pose(
 # ==========================================
 selected_points = [
 
-    0,
+    11, 12,   # shoulders
 
-    11, 12,
+    13, 14,   # elbows
 
-    13, 14,
+    15, 16,   # wrists
 
-    15, 16,
+    23, 24,   # hips
 
-    23, 24,
+    25, 26,   # knees
 
-    25, 26,
+    27, 28,   # ankles
 
-    27, 28,
-
-    29, 30,
-
-    31, 32
+    31, 32    # foot index
 ]
+
+# ==========================================
+# SAFE SPEAK FUNCTION
+# ==========================================
+def speak_correction(message):
+
+    global is_speaking
+
+    try:
+
+        is_speaking = True
+
+        engine.say(message)
+
+        engine.runAndWait()
+
+    except Exception as e:
+
+        print(f"Voice Error: {e}")
+
+    finally:
+
+        is_speaking = False
 
 # ==========================================
 # ANGLE FUNCTION
@@ -256,18 +301,22 @@ def get_pose_correction(
 
     right_knee = angles[3]
 
-    shoulder = angles[6]
+    left_shoulder = angles[6]
+
+    right_shoulder = angles[8]
 
     leg_spread = angles[7]
 
-    knee_symmetry = angles[11]
+    torso_left = angles[9]
+
+    torso_right = angles[10]
 
     # ======================================
     # GODDESS
     # ======================================
     if pose_name == "UtkataKonasana":
 
-        if knee_symmetry > 25:
+        if abs(left_knee - right_knee) > 25:
 
             correction = (
                 "Keep both knees equally bent"
@@ -290,16 +339,16 @@ def get_pose_correction(
     # ======================================
     elif pose_name == "Veerabhadrasana":
 
-        if knee_symmetry < 15:
+        if abs(left_knee - right_knee) < 15:
 
             correction = (
-                "One knee should bend more"
+                "Bend your front knee more"
             )
 
-        elif shoulder < 150:
+        elif left_shoulder < 145:
 
             correction = (
-                "Raise arms straighter"
+                "Raise your arms straighter"
             )
 
         else:
@@ -311,9 +360,17 @@ def get_pose_correction(
     # ======================================
     elif pose_name == "Triangle":
 
-        if shoulder < 140:
+        if torso_left < 145 or torso_right < 145:
 
-            correction = "Raise upper arm"
+            correction = (
+                "Lean your body sideways more"
+            )
+
+        elif right_shoulder < 140:
+
+            correction = (
+                "Raise your upper arm"
+            )
 
         else:
 
@@ -353,6 +410,8 @@ def generate_frames():
 
     global missing_frames
 
+    global last_speak_time
+
     if model is None:
 
         print("Model not loaded")
@@ -361,9 +420,6 @@ def generate_frames():
 
     cap = cv2.VideoCapture(0)
 
-    # ======================================
-    # CAMERA OPTIMIZATION
-    # ======================================
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
@@ -372,7 +428,7 @@ def generate_frames():
 
     cap.set(cv2.CAP_PROP_FPS, 30)
 
-    CONFIDENCE_THRESHOLD = 75
+    CONFIDENCE_THRESHOLD = 90
 
     STABLE_FRAMES = 4
 
@@ -386,9 +442,6 @@ def generate_frames():
 
                 success, frame = cap.read()
 
-                # ======================================
-                # CAMERA RECONNECT
-                # ======================================
                 if not success:
 
                     print("Reconnecting camera...")
@@ -403,15 +456,14 @@ def generate_frames():
 
                 frame_count += 1
 
-                # MIRROR
                 frame = cv2.flip(frame, 1)
 
                 # ======================================
-                # REDUCE CPU LOAD
+                # SMALLER FRAME FOR SPEED
                 # ======================================
                 small_frame = cv2.resize(
                     frame,
-                    (320, 240)
+                    (640, 480)
                 )
 
                 rgb = cv2.cvtColor(
@@ -426,18 +478,18 @@ def generate_frames():
                 rgb.flags.writeable = True
 
                 # ======================================
-                # PROCESS EVERY 5 FRAMES
+                # PROCESS EVERY 3 FRAMES
                 # ======================================
                 if (
                     results.pose_landmarks
                     and
-                    frame_count % 5 == 0
+                    frame_count % 3 == 0
                 ):
 
                     lms = results.pose_landmarks.landmark
 
                     # ======================================
-                    # DRAW SKELETON
+                    # DRAW LANDMARKS
                     # ======================================
                     mp_draw.draw_landmarks(
 
@@ -467,10 +519,10 @@ def generate_frames():
 
                         1 for idx in selected_points
 
-                        if lms[idx].visibility > 0.55
+                        if lms[idx].visibility > 0.3
                     )
 
-                    if visible_points < 12:
+                    if visible_points < 6:
 
                         missing_frames += 1
 
@@ -501,10 +553,9 @@ def generate_frames():
                                 lm.z
                             ])
 
-                        # 17 landmarks × 3
-                        if len(landmarks_raw) == 51:
+                        # 14 landmarks × 3 = 42
+                        if len(landmarks_raw) == 42:
 
-                            # NORMALIZE
                             normalized = normalize_landmarks(
                                 landmarks_raw,
                                 lms
@@ -515,48 +566,56 @@ def generate_frames():
                             # ======================================
                             angles = [
 
+                                # Left elbow
                                 calculate_angle(
                                     [lms[11].x, lms[11].y],
                                     [lms[13].x, lms[13].y],
                                     [lms[15].x, lms[15].y]
                                 ),
 
+                                # Right elbow
                                 calculate_angle(
                                     [lms[12].x, lms[12].y],
                                     [lms[14].x, lms[14].y],
                                     [lms[16].x, lms[16].y]
                                 ),
 
+                                # Left knee
                                 calculate_angle(
                                     [lms[23].x, lms[23].y],
                                     [lms[25].x, lms[25].y],
                                     [lms[27].x, lms[27].y]
                                 ),
 
+                                # Right knee
                                 calculate_angle(
                                     [lms[24].x, lms[24].y],
                                     [lms[26].x, lms[26].y],
                                     [lms[28].x, lms[28].y]
                                 ),
 
+                                # Left hip
                                 calculate_angle(
                                     [lms[11].x, lms[11].y],
                                     [lms[23].x, lms[23].y],
                                     [lms[25].x, lms[25].y]
                                 ),
 
+                                # Right hip
                                 calculate_angle(
                                     [lms[12].x, lms[12].y],
                                     [lms[24].x, lms[24].y],
                                     [lms[26].x, lms[26].y]
                                 ),
 
+                                # Left shoulder
                                 calculate_angle(
                                     [lms[13].x, lms[13].y],
                                     [lms[11].x, lms[11].y],
                                     [lms[23].x, lms[23].y]
                                 ),
 
+                                # Leg spread
                                 calculate_angle(
                                     [lms[27].x, lms[27].y],
 
@@ -575,39 +634,58 @@ def generate_frames():
                                     [lms[28].x, lms[28].y]
                                 ),
 
+                                # Right shoulder
                                 calculate_angle(
                                     [lms[14].x, lms[14].y],
                                     [lms[12].x, lms[12].y],
                                     [lms[24].x, lms[24].y]
                                 ),
 
+                                # Left torso
                                 calculate_angle(
                                     [lms[11].x, lms[11].y],
-                                    [lms[15].x, lms[15].y],
+                                    [lms[23].x, lms[23].y],
                                     [lms[27].x, lms[27].y]
                                 ),
 
+                                # Right torso
                                 calculate_angle(
                                     [lms[12].x, lms[12].y],
-                                    [lms[16].x, lms[16].y],
+                                    [lms[24].x, lms[24].y],
                                     [lms[28].x, lms[28].y]
                                 ),
 
-                                abs(
+                                # Left ankle
+                                calculate_angle(
+                                    [lms[25].x, lms[25].y],
+                                    [lms[27].x, lms[27].y],
+                                    [lms[31].x, lms[31].y]
+                                ),
 
-                                    calculate_angle(
-                                        [lms[23].x, lms[23].y],
-                                        [lms[25].x, lms[25].y],
-                                        [lms[27].x, lms[27].y]
-                                    )
+                                # Right ankle
+                                calculate_angle(
+                                    [lms[26].x, lms[26].y],
+                                    [lms[28].x, lms[28].y],
+                                    [lms[32].x, lms[32].y]
+                                ),
 
-                                    -
+                                # Arm spread
+                                calculate_angle(
+                                    [lms[15].x, lms[15].y],
 
-                                    calculate_angle(
-                                        [lms[24].x, lms[24].y],
-                                        [lms[26].x, lms[26].y],
-                                        [lms[28].x, lms[28].y]
-                                    )
+                                    [
+                                        (
+                                            lms[11].x +
+                                            lms[12].x
+                                        ) / 2,
+
+                                        (
+                                            lms[11].y +
+                                            lms[12].y
+                                        ) / 2
+                                    ],
+
+                                    [lms[16].x, lms[16].y]
                                 )
                             ]
 
@@ -619,11 +697,12 @@ def generate_frames():
                                 angles
                             ])
 
+                            # 42 + 14 = 56
                             processed_input = np.array(
                                 final_features
                             ).reshape(
                                 1,
-                                len(final_features)
+                                56
                             )
 
                             # SCALE
@@ -698,6 +777,43 @@ def generate_frames():
                                         angles
                                     )
 
+                                    # ======================================
+                                    # SAFE VOICE FEEDBACK
+                                    # ======================================
+                                    current_time = time.time()
+
+                                    should_speak = (
+
+                                        correction_message != ""
+
+                                        and
+
+                                        correction_message != "Good posture"
+
+                                        and
+
+                                        not is_speaking
+
+                                        and
+
+                                        current_time - last_speak_time
+                                        > VOICE_COOLDOWN
+                                    )
+
+                                    if should_speak:
+
+                                        last_speak_time = current_time
+
+                                        threading.Thread(
+
+                                            target=speak_correction,
+
+                                            args=(correction_message,),
+
+                                            daemon=True
+
+                                        ).start()
+
                 # ======================================
                 # MEMORY CLEANUP
                 # ======================================
@@ -713,7 +829,7 @@ def generate_frames():
                     frame,
                     [
                         int(cv2.IMWRITE_JPEG_QUALITY),
-                        50
+                        55
                     ]
                 )
 
